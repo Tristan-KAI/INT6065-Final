@@ -1,0 +1,10 @@
+# Render Blueprint：连接本仓库后自动创建 Web Service（零依赖后端）
+services:
+  - type: web
+    name: ai-science-detective
+    runtime: python
+    buildCommand: ""            # 零依赖，无需安装
+    startCommand: python3 server.py
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false             # 在 Render 面板手动填一次，不写进仓库、不泄露

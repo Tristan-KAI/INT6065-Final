@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 科学小侦探 · Fact-Checker Agent</title>
+<style>
+  :root{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--brand:#1f3b73;--brand2:#2f5fd0;
+    --accent:#f59e0b;--ok:#059669;--bad:#dc2626;--bg:#f4f6fb;--card:#fff;--chip:#eef2ff;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.7;}
+  .wrap{max-width:940px;margin:0 auto;padding:24px 16px 64px;}
+  header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;border-radius:16px;
+    padding:22px 26px 20px;margin-bottom:18px;box-shadow:0 8px 24px rgba(31,59,115,.18);}
+  header .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  header h1{margin:0;font-size:23px;letter-spacing:.5px;}
+  header .en{margin-top:3px;font-size:13px;opacity:.85;}
+  header .badge{display:inline-block;margin-top:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);
+    padding:3px 12px;border-radius:999px;font-size:12px;}
+  .mode-switch{display:flex;gap:6px;}
+  .mode-switch button{border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);color:#fff;
+    border-radius:999px;padding:7px 15px;font-size:13px;font-weight:600;cursor:pointer;}
+  .mode-switch button.active{background:#fff;color:var(--brand);}
+  .totstars{font-size:13px;opacity:.95;margin-top:8px;}
+  .totstars .s{color:#ffd166;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .lv-chip{font-size:12px;color:var(--brand2);background:var(--chip);border-radius:999px;padding:3px 11px;font-weight:600;}
+  .subj{color:var(--muted);font-size:13px;}
+  h2{margin:0 0 4px;font-size:18px;}
+  h3{margin:0 0 10px;font-size:16px;color:var(--brand);}
+  .tip{color:var(--muted);font-size:13px;}
+  /* AI 面板 */
+  .ai-panel{border:1px solid #c7d2fe;background:#f8faff;border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .ai-panel .head{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--brand);margin-bottom:10px;}
+  .ai-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end;}
+  .ai-grid label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  input[type=text],select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;background:#fff;}
+  input:focus,select:focus{outline:none;border-color:var(--brand2);}
+  #aiStatus{font-size:12.5px;color:var(--muted);margin-top:10px;min-height:18px;}
+  #aiStatus.ok{color:var(--ok);} #aiStatus.bad{color:var(--bad);}
+  /* 教师面板 */
+  .teacher-panel{border:1px solid #fde68a;background:#fffbeb;border-radius:14px;padding:18px 20px;margin-bottom:16px;}
+  .teacher-panel h3{color:#92400e;}
+  .sub-box{border:1px solid #fde68a;background:#fff;border-radius:10px;padding:12px 14px;margin:10px 0;font-size:14px;}
+  table{width:100%;border-collapse:collapse;}
+  td{padding:6px 8px;vertical-align:top;border-bottom:1px solid #f3e8cc;font-size:13.5px;}
+  td:last-child,tr:last-child td{border-bottom:none;}
+  .w{color:var(--bad);text-decoration:line-through;} .c{color:var(--ok);}
+  .override{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .override .obtn{font-size:22px;background:none;border:none;cursor:pointer;color:#d1d5db;padding:0 2px;}
+  .override .obtn.on{color:var(--accent);}
+  .badge-t{font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-weight:600;}
+  /* 短文 */
+  .passage{margin:14px 0 6px;font-size:16.5px;line-height:2;}
+  .seg{display:inline;padding:2px 3px;border-radius:5px;cursor:pointer;transition:background .12s,border-color .12s;border-bottom:2px solid transparent;}
+  .seg:hover{background:#fef3c7;}
+  .seg.hl{background:#fee2e2;border-bottom-color:var(--bad);}
+  .seg.reveal-err{background:#d1fae5;border-bottom-color:var(--ok);}
+  .seg.reveal-ok{background:#f3f4f6;}
+  .legend{font-size:12px;color:var(--muted);margin-top:6px;}
+  .legend b.hl{color:var(--bad);} .legend b.rv{color:var(--ok);}
+  textarea{width:100%;min-height:96px;border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;font-size:15px;resize:vertical;background:#fafbff;}
+  textarea:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(47,95,208,.12);}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  button{cursor:pointer;border:none;border-radius:10px;padding:11px 18px;font:inherit;font-size:14px;font-weight:600;transition:.15s;}
+  .btn-p{background:var(--brand2);color:#fff;} .btn-p:hover{background:var(--brand);}
+  .btn-s{background:#fff;color:var(--brand2);border:1px solid var(--brand2);} .btn-s:hover{background:var(--chip);}
+  .btn-ghost{background:#f3f4f6;color:var(--ink);} .btn-ghost:hover{background:#e5e7eb;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .verdict{border-left:4px solid var(--brand2);background:#f5f8ff;border-radius:0 10px 10px 0;padding:14px 16px;margin-top:14px;}
+  .stars{color:var(--accent);font-size:20px;letter-spacing:2px;} .stars .off{color:#d1d5db;}
+  .verdict h3{margin:0 0 8px;font-size:16px;color:var(--brand);}
+  .fb{margin:8px 0;font-size:15px;}
+  .fb.ok::before{content:"✔ ";color:var(--ok);font-weight:700;}
+  .fb.warn::before{content:"⚠ ";color:var(--accent);font-weight:700;}
+  .fb.bad::before{content:"✘ ";color:var(--bad);font-weight:700;}
+  .fb.ai::before{content:"✦ ";color:var(--brand2);font-weight:700;}
+  .probe{margin-top:12px;background:#fff;border:1px dashed var(--brand2);border-radius:10px;padding:12px 14px;color:var(--brand);}
+  .probe b{color:var(--brand2);}
+  .answers{margin-top:12px;font-size:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;}
+  /* 档案 */
+  .archive{font-size:14px;}
+  .archive .item{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);}
+  .archive .item:last-child{border-bottom:none;}
+  .archive .t{font-weight:600;} .archive .d{color:var(--muted);font-size:12px;}
+  .archive .st{color:var(--accent);white-space:nowrap;}
+  .empty{color:var(--muted);font-size:13px;}
+  details{margin-top:16px;font-size:13px;color:var(--muted);}
+  details summary{cursor:pointer;color:var(--brand2);font-weight:600;}
+  details p{margin:8px 0;}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div>
+        <h1>🔍 AI 科学小侦探</h1>
+        <div class="en">AI Fact-Checker Agent — 用「会犯错的 AI」训练批判性思维</div>
+      </div>
+      <div class="mode-switch">
+        <button id="mStudent" class="active">👨‍🎓 学生模式</button>
+        <button id="mTeacher">👩‍🏫 教师模式</button>
+      </div>
+    </div>
+    <span class="badge">关卡式科学质询 · 苏格拉底引导 · Human-in-the-Loop 复核</span>
+    <div class="totstars" id="totStars">侦探累计：0 ⭐</div>
+  </header>
+
+  <div class="ai-panel">
+    <div class="head">🤖 真 AI 模式（云端 DeepSeek · 已就绪）</div>
+    <div class="ai-grid">
+      <div style="grid-column:1/-1;">
+        <label>🔐 API Key 已由服务器端配置，访客无需填写，也看不到你的 key</label>
+      </div>
+      <div><label>知识点</label>
+        <select id="topic"><option>随机科学知识</option><option>生态系统与能量流动</option><option>光合作用与呼吸</option>
+        <option>物质三态变化</option><option>自由落体与引力</option><option>人体血液循环</option><option>简单电路与电流</option></select>
+      </div>
+      <div><label>难度</label><select id="diff"><option>入门</option><option selected>进阶</option><option>挑战</option></select></div>
+      <div class="btns" style="margin-top:0;">
+        <button class="btn-p" id="aiGen">🤖 生成全新关卡</button>
+      </div>
+    </div>
+    <div id="aiStatus">✅ 云端 AI 已就绪：选知识点/难度 → 点「生成全新关卡」；提交质询也会让真 AI 点评。</div>
+  </div>
+
+  <div class="teacher-panel" id="teacherPanel" style="display:none;">
+    <h3>👩‍🏫 教师模式 · Human-in-the-Loop 复核</h3>
+    <div class="sub-box" id="teacherAnswers"><b>标准答案</b>（当前关卡）…</div>
+    <div class="sub-box" id="teacherAttempt"><b>学生最近一次质询</b><br><span class="empty">还没有学生提交。</span></div>
+    <div class="sub-box">
+      <b>教师复核评分</b>（可覆盖 AI 判定）
+      <div class="override" style="margin-top:6px;">
+        <span id="ov1" class="obtn">★</span><span id="ov2" class="obtn">★</span><span id="ov3" class="obtn">★</span>
+        <button class="btn-ghost" id="saveOv" style="padding:7px 14px;">保存复核</button>
+        <span class="badge-t" id="ovStatus"></span>
+      </div>
+    </div>
+    <div class="sub-box"><b>教学仪表盘</b><br><span class="tip">内置关卡：生态系统 · 水的物态 · 光合作用 · 自由落体。HITL 说明：教师可在此查看标准答案、审查学生质询并手动判分，防止 AI 二次误判。</span></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><span class="lv-chip" id="lvChip">关卡 1</span> <span class="subj" id="subjTag">生物 · 初中</span></div>
+      <div style="font-size:13px;color:var(--muted);">本关评分：<span class="stars" id="starsTop">☆☆☆</span></div>
+    </div>
+    <h2 id="lvTitle">生态系统与能量流动</h2>
+    <p class="tip">下面这段「科学短文」是 AI 生成的，藏着 <b>1–2 处科学错误</b>。① 点击可疑片段标出来；② 下方写出质疑和依据。</p>
+  </div>
+
+  <div class="card">
+    <div class="passage" id="passage"></div>
+    <div class="legend">标记「可疑」的片段为 <b class="hl">红色</b>；再点一次取消。提交后揭晓 <b class="rv">绿色=确属错误</b>。</div>
+    <div style="margin-top:16px;">
+      <div class="tip" style="margin-bottom:6px;">✍️ 我的质疑（「哪里错了 + 正确应该是什么 + 依据」）：</div>
+      <textarea id="reason" placeholder="例：我认为「能量逐级增多」错了，能量应该逐级递减，大约只有 10% 传到下一营养级……"></textarea>
+    </div>
+    <div class="btns">
+      <button class="btn-p" id="submit">提交质询 · 让 AI 助手点评</button>
+      <button class="btn-s" id="reveal">查看标准答案</button>
+      <button class="btn-ghost" id="next">🎲 换一关（内置）</button>
+      <button class="btn-ghost" id="reset">重做本关</button>
+    </div>
+    <div id="verdict" style="display:none;"></div>
+    <details>
+      <summary>关于本 Demo（技术说明）</summary>
+      <p><b>这是「AI 科学小侦探」的云端完整版。</b>内置 4 道关卡 + 规则点评引擎；真 AI（实时生成新关卡 + 真 AI 点评）由服务器端 DeepSeek 提供。</p>
+      <p><b>三层架构</b>：① 关卡生成器（LLM）② 学生交互端（本页）③ 苏格拉底 Agent + <b>Human-in-the-Loop 教师复核</b>（顶部切到教师模式查看）。</p>
+    </details>
+  </div>
+
+  <div class="card archive">
+    <h3>🕵️ 侦探档案</h3>
+    <div id="archiveList"><span class="empty">还没有记录，完成第一关就会出现在这里。</span></div>
+  </div>
+
+  <footer>INT6065 Artificial Intelligence in Education · 小组项目 ② AI 科学小侦探（AI Fact-Checker Agent）· Six Gods</footer>
+</div>
+
+<script>
+const LEVELS = [
+ {title:'生态系统与能量流动', subject:'生物 · 初中',
+  passage:[{t:'在生态系统中，能量沿着食物链流动。',err:false},{t:'植物通过光合作用把太阳能转化为化学能。',err:false},
+   {t:'能量传递时会有损耗，因此能量沿食物链逐级增多，顶端的肉食动物获得的能量也最多。',err:true},
+   {t:'另外，食物链通常从消费者开始。',err:true}],
+  errors:[{seg:2,wrong:'能量沿食物链逐级增多、顶端能量最多',correct:'能量沿食物链逐级递减（约 10% 法则），顶端肉食动物能量最少',keys:['递减','10%','减少','最少','损耗','降低'],probe:'为什么能量传递只有约 10%？剩下的 90% 去了哪里？'},
+   {seg:3,wrong:'食物链从消费者开始',correct:'食物链应从生产者（植物）开始',keys:['生产者','植物','自养'],probe:'如果食物链从消费者开始，最底层的能量最初来自哪里？'}]},
+ {title:'水的物态变化', subject:'物理 / 化学 · 初中',
+  passage:[{t:'水加热到 100℃ 会沸腾，变成水蒸气。',err:false},{t:'这是因为加热让水分子运动加快，分子间的距离变大。',err:false},
+   {t:'水变成水蒸气后，水分子本身变大了，所以气态比液态轻。',err:true},{t:'另外，冰的密度比水大，所以冰会沉到水底。',err:true}],
+  errors:[{seg:2,wrong:'水分子本身变大',correct:'分子本身大小不变，变的是分子间的距离；气态更「轻」是因为同体积下分子数更少',keys:['间距','距离','不变','间隔','分子数'],probe:'如果水分子真的变大了，冰化成水后分子是不是又变小了？——不变的是什么？'},
+   {seg:3,wrong:'冰密度比水大、沉到水底',correct:'冰的密度比水小，所以浮在水面',keys:['密度','小','浮','漂浮'],probe:'冬天湖面结冰，鱼为什么还能在冰下的水里活着？'}]},
+ {title:'光合作用与呼吸作用', subject:'生物 · 初中',
+  passage:[{t:'绿色植物通过光合作用制造养分。',err:false},{t:'光合作用吸收二氧化碳、释放氧气。',err:false},
+   {t:'植物白天进行光合作用，晚上进行呼吸作用。',err:true},{t:'所以白天植物只释放氧气，不释放二氧化碳。',err:true}],
+  errors:[{seg:2,wrong:'白天光合、晚上呼吸',correct:'呼吸作用全天进行、不分昼夜；光合作用只在有光时进行',keys:['呼吸','全天','昼夜','时刻','一直'],probe:'如果植物晚上才呼吸，那它白天靠什么获得能量维持生命？'},
+   {seg:3,wrong:'白天只释放氧气、不释放二氧化碳',correct:'白天植物既光合又呼吸，也会释放二氧化碳',keys:['呼吸','二氧化碳','同时','也释放'],probe:'白天把很多植物放进密闭房间，二氧化碳浓度就一定一直下降吗？'}]},
+ {title:'自由落体与引力', subject:'物理 · 初中',
+  passage:[{t:'物体下落，是因为地球对它施加了重力。',err:false},{t:'在没有空气阻力的真空中，重的物体比轻的物体下落得更快。',err:true},
+   {t:'月球上没有空气，所以月球上的物体不受引力。',err:true}],
+  errors:[{seg:1,wrong:'真空中重物比轻物下落快',correct:'真空（无空气阻力）中所有物体下落一样快（伽利略）',keys:['一样','相同','同时','伽利略'],probe:'如果真空中重物先落地，那跳伞运动员的降落伞还有什么用？'},
+   {seg:2,wrong:'月球上物体不受引力',correct:'月球也有引力，约为地球的 1/6，只是更小',keys:['1/6','六分之一','引力','小'],probe:'阿姆斯特朗在月球上跳起后，为什么会慢慢地落回地面？'}]}
+];
+
+let active = LEVELS[0], cur = 0, hl = [], submitted = false, aiReady = true;
+let mode = 'student', lastAttempt = null, overrideRating = 0;
+const API = '';
+const LS_KEY = 'ai_detective_v1';
+
+function $(id){ return document.getElementById(id); }
+function setStatus(msg, cls){ const e=$('aiStatus'); e.textContent=msg; e.className=cls||''; }
+function stars(n){ let o=''; for(let i=0;i<3;i++) o+=(i<n)?'★':'<span class="off">★</span>'; return o; }
+
+function loadHist(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[]; }catch(e){ return []; } }
+function saveHist(h){ try{ localStorage.setItem(LS_KEY, JSON.stringify(h)); }catch(e){} }
+let history = loadHist();
+
+function resetState(){
+  hl = active.passage.map(()=>false);
+  submitted = false; lastAttempt = null; overrideRating = 0;
+  $('verdict').style.display='none'; $('verdict').innerHTML='';
+  $('reason').value=''; $('starsTop').textContent='☆☆☆'; $('reveal').disabled=false;
+  $('ovStatus').textContent='';
+}
+
+function renderLevel(){
+  $('subjTag').textContent = active.subject;
+  $('lvTitle').textContent = active.title;
+  $('lvChip').textContent = (cur<0) ? '关卡 · AI 生成' : ('关卡 '+(cur+1)+' / '+LEVELS.length);
+  const p=$('passage'); p.innerHTML='';
+  active.passage.forEach((seg,i)=>{
+    const s=document.createElement('span'); s.className='seg'; s.textContent=seg.t;
+    if(hl[i]) s.classList.add('hl');
+    s.onclick=()=>{ if(submitted) return; hl[i]=!hl[i]; s.classList.toggle('hl',hl[i]); };
+    p.appendChild(s);
+  });
+  if(mode==='teacher') renderTeacher();
+}
+
+function evaluateLocal(){
+  const errSegs=new Set(active.errors.map(e=>e.seg));
+  let found=[],missed=[],falsePos=[];
+  active.passage.forEach((seg,i)=>{ if(seg.err){ if(hl[i]) found.push(i); else missed.push(i); } else if(hl[i]) falsePos.push(i); });
+  const reason=$('reason').value.trim().toLowerCase();
+  const foundErrors=active.errors.filter(e=>found.includes(e.seg));
+  let evidenced=foundErrors.filter(e=>(e.keys||[]).some(k=>reason.includes(k))).length;
+  const fb=[];
+  if(falsePos.length) fb.push({cls:'bad',text:'你标记了 '+falsePos.length+' 处其实<b>正确</b>的片段——它们没有错。'});
+  if(found.length) fb.push({cls:'ok',text:'定位准确：找出了 '+found.length+' 处隐藏错误。'});
+  if(found.length && found.length===errSegs.size && evidenced===found.length) fb.push({cls:'ok',text:'证据充分：质疑给出了正确说法与事实依据，很扎实！'});
+  else if(found.length && evidenced<found.length) fb.push({cls:'warn',text:'证据可以更足：补上「正确应该是什么 + 依据」。'});
+  if(missed.length){ const e=active.errors.find(x=>x.seg===missed[0]);
+    fb.push({cls:'bad',text:'还有 '+missed.length+' 处隐藏错误没找到。'+(e?('提示：注意「'+e.wrong.slice(0,8)+'」附近。'):'')}); }
+  if(!found.length&&!falsePos.length&&!missed.length) fb.push({cls:'warn',text:'你还没有标记任何可疑片段。'});
+  const total=errSegs.size, covered=found.length, precision=(found.length+falsePos.length)?found.length/(found.length+falsePos.length):0;
+  let n=0;
+  if(covered===total && falsePos.length===0) n=3;
+  else if(covered>=1 && covered>=Math.ceil(total/2) && precision>=0.6) n=2;
+  else if(covered>=1) n=1;
+  let probe=(active.errors[0]||{}).probe||'再仔细想想，哪里不合逻辑？';
+  const weak=foundErrors.find(e=>!(e.keys||[]).some(k=>reason.includes(k)));
+  if(weak) probe=weak.probe; else if(missed.length){ const e=active.errors.find(x=>x.seg===missed[0]); if(e) probe=e.probe; }
+  return {n,fb,probe};
+}
+
+function markReveal(){
+  const segs=$('passage').children;
+  active.passage.forEach((seg,i)=>{ segs[i].classList.remove('hl');
+    if(seg.err) segs[i].classList.add('reveal-err'); else if(hl[i]) segs[i].classList.add('reveal-ok'); });
+}
+
+function renderVerdict(res){
+  $('starsTop').innerHTML=stars(res.n);
+  const v=$('verdict');
+  v.innerHTML='<div class="verdict"><h3>苏格拉底 AI 助手点评</h3><div class="stars">'+stars(res.n)+'</div>'+
+    res.fb.map(f=>'<div class="fb '+f.cls+'">'+f.text+'</div>').join('')+
+    '<div class="probe"><b>🔎 追问（不直接给答案）：</b>'+res.probe+'</div></div>';
+  v.style.display='block';
+  v.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function callBackend(path,payload){
+  const res=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json().catch(()=>({error:'HTTP '+res.status}));
+  if(!res.ok) throw new Error(data.error||('HTTP '+res.status));
+  return data;
+}
+
+async function submit(){
+  const local=evaluateLocal();
+  submitted=true; markReveal();
+  const hi=hl.map((v,i)=>v?i:null).filter(x=>x!==null);
+  const hiTexts=hi.map(i=>active.passage[i].t);
+  // 记录本次质询（供教师复核）
+  lastAttempt={title:active.title, hiTexts, reason:$('reason').value, rating:local.n, time:new Date().toLocaleString()};
+  if(aiReady){
+    renderVerdict(local); setStatus('✦ 正在请真 AI 点评……','');
+    try{
+      const ai=await callBackend('/api/evaluate',{passage:active.passage,errors:active.errors,highlighted:hi,reason:$('reason').value});
+      const fb=(ai.feedback||[]).map(t=>({cls:'ai',text:t}));
+      const r={n:ai.rating||local.n,fb,probe:ai.probe||local.probe};
+      renderVerdict(r); lastAttempt.rating=r.n;
+      setStatus('✅ 真 AI 点评完成','ok');
+    }catch(e){ setStatus('⚠️ AI 点评失败，已用规则版：'+e.message,'bad'); }
+  } else { renderVerdict(local); }
+  // 记入档案
+  history.push({title:active.title, rating:lastAttempt.rating, time:lastAttempt.time, teacherRating:null});
+  saveHist(history); renderArchive();
+  if(mode==='teacher') renderTeacher();
+}
+
+function reveal(){
+  const rows=active.errors.map(e=>'<tr><td class="w">'+e.wrong+'</td><td class="c">'+e.correct+'</td></tr>').join('');
+  $('verdict').innerHTML+='<div class="answers"><b>📖 标准答案</b><table>'+rows+'</table></div>';
+  $('verdict').style.display='block'; $('reveal').disabled=true;
+}
+
+function nextLevel(){ cur=(cur+1)%LEVELS.length; active=LEVELS[cur]; resetState(); renderLevel(); }
+function resetLevel(){ resetState(); renderLevel(); }
+
+
+async function aiGen(){
+  if(!aiReady){ setStatus('请先填 key 并点「连接 AI」','bad'); return; }
+  setStatus('🤖 AI 正在生成全新关卡……','');
+  try{
+    const L=await callBackend('/api/generate',{topic:$('topic').value,difficulty:$('diff').value});
+    active={title:L.title,subject:L.subject,passage:L.passage,errors:L.errors};
+    cur=-1; resetState(); renderLevel();
+    setStatus('✅ 已生成：「'+L.title+'」——开始挑错吧','ok');
+  }catch(e){ setStatus('❌ 生成失败：'+e.message,'bad'); }
+}
+
+// 教师模式
+function switchMode(m){
+  mode=m;
+  $('mStudent').classList.toggle('active', m==='student');
+  $('mTeacher').classList.toggle('active', m==='teacher');
+  $('teacherPanel').style.display = (m==='teacher') ? 'block' : 'none';
+  if(m==='teacher') renderTeacher();
+}
+function renderTeacher(){
+  // 标准答案
+  $('teacherAnswers').innerHTML='<b>标准答案</b>（当前关卡「'+active.title+'」）<table>'+
+    active.errors.map(e=>'<tr><td class="w">'+e.wrong+'</td><td class="c">'+e.correct+'</td></tr>').join('')+'</table>';
+  // 最近一次质询
+  if(lastAttempt){
+    const starsHtml = stars(lastAttempt.rating);
+    $('teacherAttempt').innerHTML='<b>学生最近一次质询</b>（'+lastAttempt.time+'）<br>'+
+      '<b>标记片段：</b>'+ (lastAttempt.hiTexts.length? lastAttempt.hiTexts.join('　/　') : '（未标记）') +'<br>'+
+      '<b>质疑：</b>'+(lastAttempt.reason||'（未写）')+'<br>'+
+      '<b>AI 评分：</b>'+starsHtml+
+      (lastAttempt.teacherRating!=null ? '　<span class="badge-t">教师复核 '+lastAttempt.teacherRating+' 星</span>' : '');
+  } else {
+    $('teacherAttempt').innerHTML='<b>学生最近一次质询</b><br><span class="empty">还没有学生提交。</span>';
+  }
+}
+function setOv(n){
+  overrideRating=n;
+  for(let i=1;i<=3;i++) $('ov'+i).classList.toggle('on', i<=n);
+}
+function saveOv(){
+  if(overrideRating===0){ $('ovStatus').textContent='请先点选星级'; return; }
+  if(!lastAttempt){ $('ovStatus').textContent='还没有学生质询可复核'; return; }
+  lastAttempt.teacherRating=overrideRating;
+  const last=history[history.length-1];
+  if(last) last.teacherRating=overrideRating;
+  saveHist(history);
+  $('ovStatus').textContent='已保存复核：'+overrideRating+' 星';
+  renderTeacher(); renderArchive();
+}
+
+function renderArchive(){
+  const el=$('archiveList');
+  if(!history.length){ el.innerHTML='<span class="empty">还没有记录，完成第一关就会出现在这里。</span>'; }
+  else{
+    el.innerHTML=history.slice().reverse().map(h=>
+      '<div class="item"><div><div class="t">'+h.title+'</div><div class="d">'+h.time+'</div></div>'+
+      '<div class="st">'+stars(h.rating)+(h.teacherRating!=null?'　<span class="badge-t">师评 '+h.teacherRating+'★</span>':'')+'</div></div>'
+    ).join('');
+  }
+  const total=history.reduce((s,h)=>s+(h.teacherRating!=null?h.teacherRating:h.rating),0);
+  $('totStars').textContent='侦探累计：'+total+' ⭐（'+history.length+' 关）';
+}
+
+$('submit').onclick=submit;
+$('reveal').onclick=reveal;
+$('next').onclick=nextLevel;
+$('reset').onclick=resetLevel;
+$('aiGen').onclick=aiGen;
+$('mStudent').onclick=()=>switchMode('student');
+$('mTeacher').onclick=()=>switchMode('teacher');
+$('ov1').onclick=()=>setOv(1);
+$('ov2').onclick=()=>setOv(2);
+$('ov3').onclick=()=>setOv(3);
+$('saveOv').onclick=saveOv;
+
+resetState(); renderLevel(); renderArchive();
+</script>
+</body>
+</html>
