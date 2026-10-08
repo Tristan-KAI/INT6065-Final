@@ -106,7 +106,7 @@
         <button id="mTeacher">👩‍🏫 教师模式</button>
       </div>
     </div>
-    <span class="badge">关卡式科学质询 · 苏格拉底引导 · Human-in-the-Loop 复核</span>
+    <span class="badge">六学科找错 · 苏格拉底引导 · Human-in-the-Loop 复核</span>
     <div class="totstars" id="totStars">侦探累计：0 ⭐</div>
   </header>
 
@@ -116,16 +116,21 @@
       <div style="grid-column:1/-1;">
         <label>🔐 API Key 已由服务器端配置，访客无需填写，也看不到你的 key</label>
       </div>
-      <div><label>知识点</label>
-        <select id="topic"><option>随机科学知识</option><option>生态系统与能量流动</option><option>光合作用与呼吸</option>
-        <option>物质三态变化</option><option>自由落体与引力</option><option>人体血液循环</option><option>简单电路与电流</option></select>
+      <div><label>学科</label>
+        <select id="subject">
+          <option>语文</option><option>数学</option><option>英语</option>
+          <option>物理</option><option>化学</option><option selected>生物</option>
+        </select>
+      </div>
+      <div><label>知识点（留空=随机）</label>
+        <input type="text" id="topic" placeholder="如：病句、二次函数、被动语态、牛顿定律…">
       </div>
       <div><label>难度</label><select id="diff"><option>入门</option><option selected>进阶</option><option>挑战</option></select></div>
       <div class="btns" style="margin-top:0;">
         <button class="btn-p" id="aiGen">🤖 生成全新关卡</button>
       </div>
     </div>
-    <div id="aiStatus">✅ 云端 AI 已就绪：选知识点/难度 → 点「生成全新关卡」；提交质询也会让真 AI 点评。</div>
+    <div id="aiStatus">✅ 云端 AI 已就绪：选学科/知识点/难度 → 点「生成全新关卡」；提交质询也会让真 AI 点评。</div>
   </div>
 
   <div class="teacher-panel" id="teacherPanel" style="display:none;">
@@ -327,7 +332,7 @@ async function aiGen(){
   if(!aiReady){ setStatus('请先填 key 并点「连接 AI」','bad'); return; }
   setStatus('🤖 AI 正在生成全新关卡……','');
   try{
-    const L=await callBackend('/api/generate',{topic:$('topic').value,difficulty:$('diff').value});
+    const L=await callBackend('/api/generate',{subject:$('subject').value,topic:$('topic').value,difficulty:$('diff').value});
     active={title:L.title,subject:L.subject,passage:L.passage,errors:L.errors};
     cur=-1; resetState(); renderLevel();
     setStatus('✅ 已生成：「'+L.title+'」——开始挑错吧','ok');

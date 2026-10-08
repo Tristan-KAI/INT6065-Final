@@ -81,16 +81,29 @@ def call_json(system, user, temperature, max_tokens, retries=2):
     raise RuntimeError("连续 %d 次都未返回合法 JSON：%s" % (retries, last))
 
 
-GEN_SYS = (
-    "你是一名经验丰富的初中科学教师，专门设计「科学找错」关卡。"
-    "写一段初中科学短文（3~6 个短句/短语），内嵌 1~2 处隐蔽的科学错误（概念倒置、数据造假、因果颠倒等）。"
-    "要求：每一处错误点单独放在一个 passage 元素里，方便学生精确定位；其余正确内容也单独成段。"
-    "只输出一个 JSON 对象，不要任何其他文字。格式：\n"
-    '{"title":"关卡标题","subject":"学科 · 年级",'
-    '"passage":[{"t":"第1段","err":false},{"t":"第2段","err":true}],'
-    '"errors":[{"seg":1,"wrong":"错误表述","correct":"正确表述","probe":"不直接给答案的苏格拉底式追问"}]}\n'
-    "passage 是逐段数组，err=true 表示该段含科学错误；errors.seg 是 passage 下标（从 0 开始），每个含错段对应一条。"
-)
+SUBJECT_HINTS = {
+    "语文": "错别字、病句、成语误用、修辞或文学常识错误",
+    "数学": "计算错误、公式用错、概念混淆、单位或符号错误",
+    "英语": "语法错误、拼写错误、时态错误、词汇搭配误用",
+    "物理": "概念倒置、公式错误、因果颠倒、数据错误",
+    "化学": "方程式错误、守恒定律误用、物质性质或反应条件错误",
+    "生物": "生理过程错误、遗传或生态概念错误、结构功能错配",
+}
+
+
+def gen_sys(subject):
+    hint = SUBJECT_HINTS.get(subject, "概念倒置、数据造假、因果颠倒等")
+    return (
+        "你是一名经验丰富的初中" + subject + "教师，专门设计「找错」关卡：写一段初中" + subject + "的短文/题目，"
+        "内嵌 1~2 处隐蔽但确定的错误，让学生找出并质询。\n"
+        "本科常见错误类型参考：" + hint + "。\n"
+        "要求：错误要「隐蔽但确定」，不能模棱两可；每一处错误点单独放在一个 passage 元素里，方便学生精确定位；其余正确内容也单独成段。"
+        "只输出一个 JSON 对象，不要任何其他文字。格式：\n"
+        '{"title":"关卡标题","subject":"学科 · 年级",'
+        '"passage":[{"t":"第1段","err":false},{"t":"第2段","err":true}],'
+        '"errors":[{"seg":1,"wrong":"错误表述","correct":"正确表述","probe":"不直接给答案的苏格拉底式追问"}]}\n'
+        "passage 是逐段数组，err=true 表示该段含错误；errors.seg 是 passage 下标（从 0 开始），每个含错段对应一条。"
+    )
 
 
 class handler(BaseHTTPRequestHandler):
@@ -114,9 +127,11 @@ class handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0) or 0)
         try:
             b = json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
-            user = ("知识点：%s；难度：%s（入门=错误明显，进阶=较隐蔽，挑战=数据/因果类）。请生成关卡。"
-                    % (b.get("topic", "随机科学知识"), b.get("difficulty", "进阶")))
-            out = call_json(GEN_SYS, user, 0.85, 1500)
+            subject = (b.get("subject", "") or "").strip() or "科学"
+            topic = (b.get("topic", "") or "").strip()
+            user = ("学科：%s；知识点：%s；难度：%s（入门=错误明显，进阶=较隐蔽，挑战=数据/因果类）。请生成关卡。"
+                    % (subject, topic or "随机", b.get("difficulty", "进阶")))
+            out = call_json(gen_sys(subject), user, 0.85, 1500)
             self._json(200, out)
         except Exception as e:
             self._json(500, {"error": str(e)})
